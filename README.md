@@ -22,7 +22,7 @@ This project is a fan-made game that brings the exciting gameplay of Head Ball t
 
 ## Download
 
-You can download the latest version of the game from the [Releases](https://github.com/Ghostkwebb/Head-Ball-Inspired/releases) page.
+You can download the latest version of the game for **Windows and Mac** from the [Releases](https://github.com/Ghostkwebb/Head-Ball-Inspired/releases) page.
 
 ## Controls
 
