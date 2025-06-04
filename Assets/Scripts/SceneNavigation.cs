@@ -29,10 +29,12 @@ public class SceneNavigation : MonoBehaviour
 
 //Difficulty [1-10]
 //Shadows
-//Effect on kick
-//Sound effects
-//android port
 //pause screen
-//goal text when goal achieved
 //update fucntion should have functions not logics
 //variables instead of hardcode
+//Effect on kick
+//Sound effects
+
+//android port
+//goal text when goal achieved
+

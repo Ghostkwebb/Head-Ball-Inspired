@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using TMPro; 
+using UnityEngine.UI; // Still needed if you ever interact with Button components directly
+using TMPro;
+
 public class GameManager : MonoBehaviour
 {
     // --- Score ---
@@ -34,6 +36,10 @@ public class GameManager : MonoBehaviour
 
     public static GameManager Instance { get; private set; }
 
+    public GameObject pauseMenuUI; // Assign your Pause Menu Panel here
+    public GameObject endGameMainMenuButton; // Assign your standalone end-game Main Menu button
+    public static bool isGamePaused = false;
+
     void Awake()
     {
         if (Instance == null)
@@ -43,44 +49,80 @@ public class GameManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
+
+        isGamePaused = false;
+        Time.timeScale = 1f;
     }
 
     void Start()
     {
-        // Find objects if not assigned
         if (playerTransform == null) playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
         if (enemyTransform == null) enemyTransform = GameObject.FindGameObjectWithTag("Enemy")?.transform;
         if (ballTransform == null) ballTransform = GameObject.FindGameObjectWithTag("Ball")?.transform;
         if (ballRb == null && ballTransform != null) ballRb = ballTransform.GetComponent<Rigidbody2D>();
 
-        // Store initial positions
         if (playerTransform) playerStartPos = playerTransform.position;
         if (enemyTransform) enemyStartPos = enemyTransform.position;
         if (ballTransform) ballStartPos = ballTransform.position;
 
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
+        if (endGameMainMenuButton != null) endGameMainMenuButton.SetActive(false); // Hide at start
         InitializeGame();
     }
 
     void InitializeGame()
     {
-        isGameOver = false;// Reset scores if re-initializing
+        isGameOver = false;
+        player1Score = 0;
         player2Score = 0;
         currentTime = gameDuration;
         isTimerRunning = true;
+        isGamePaused = false;
+        Time.timeScale = 1f;
 
         UpdateScoreUI();
         UpdateTimerUI();
         if (timerText != null) timerText.gameObject.SetActive(true);
-        if (winnerText != null) winnerText.gameObject.SetActive(false); 
+        if (winnerText != null) winnerText.gameObject.SetActive(false);
 
-        ResetPositionsAfterGoal(true); 
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
+        if (endGameMainMenuButton != null) endGameMainMenuButton.SetActive(false); // Hide on re-init
+
+        ResetPositionsAfterGoal(true);
     }
-
 
     void Update()
     {
-        if (!isGameOver && isTimerRunning)
+        HandlePauseInput();
+        HandleGameTimer();
+    }
+
+    void HandlePauseInput()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (isGameOver) // If game is over, Escape key does nothing related to pause menu
+            {
+                return;
+            }
+
+            // Toggle pause menu if game is not over
+            if (isGamePaused)
+            {
+                ResumeGame();
+            }
+            else
+            {
+                PauseGame();
+            }
+        }
+    }
+
+    void HandleGameTimer()
+    {
+        if (!isGameOver && !isGamePaused && isTimerRunning)
         {
             currentTime -= Time.deltaTime;
             UpdateTimerUI();
@@ -94,9 +136,46 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void ResumeGame()
+    {
+        if (isGameOver)
+        {
+            Debug.Log("Cannot resume: Game is Over.");
+            return;
+        }
+
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
+        Time.timeScale = 1f;
+        isGamePaused = false;
+        Debug.Log("Game Resumed");
+    }
+
+    void PauseGame()
+    {
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(true);
+        Time.timeScale = 0f;
+        isGamePaused = true;
+        Debug.Log("Game Paused");
+    }
+
+    public void LoadMainMenuFromPause() // This will be used by BOTH pause menu and end game button
+    {
+        Time.timeScale = 1f;
+        isGamePaused = false; // Reset state
+        isGameOver = false;  // Reset state
+        SceneManager.LoadScene("MainMenu");
+    }
+
+    public void QuitGameFromPause()
+    {
+        Time.timeScale = 1f;
+        Debug.Log("Quitting game from pause menu...");
+        Application.Quit();
+    }
+
     public void ScoreGoal(bool player1Scored)
     {
-        if (isGameOver) return; // Don't score if game is over
+        if (isGameOver) return;
 
         if (player1Scored)
         {
@@ -108,7 +187,7 @@ public class GameManager : MonoBehaviour
         }
 
         UpdateScoreUI();
-        ResetPositionsAfterGoal(true); // Pass true to reset ball velocity for sure
+        ResetPositionsAfterGoal(true);
     }
 
     void UpdateScoreUI()
@@ -132,11 +211,10 @@ public class GameManager : MonoBehaviour
         if (playerTransform) playerTransform.position = playerStartPos;
         if (enemyTransform)
         {
-             enemyTransform.position = enemyStartPos;
-             Rigidbody2D enemyRb = enemyTransform.GetComponent<Rigidbody2D>();
-             if (enemyRb != null) enemyRb.linearVelocity = Vector2.zero;
+            enemyTransform.position = enemyStartPos;
+            Rigidbody2D enemyRb = enemyTransform.GetComponent<Rigidbody2D>();
+            if (enemyRb != null) enemyRb.linearVelocity = Vector2.zero;
         }
-
 
         if (ballTransform)
         {
@@ -153,16 +231,17 @@ public class GameManager : MonoBehaviour
     {
         isGameOver = true;
         isTimerRunning = false;
+        Time.timeScale = 1f;
+        isGamePaused = false;
+
         Debug.Log("Game Over!");
 
-        // Stop ball
-        if (ballRb)
+        if (ballRb != null)
         {
             ballRb.linearVelocity = Vector2.zero;
             ballRb.angularVelocity = 0f;
         }
 
-        // Determine winner
         string winnerMessage;
         if (player1Score > player2Score)
         {
@@ -170,7 +249,7 @@ public class GameManager : MonoBehaviour
         }
         else if (player2Score > player1Score)
         {
-            winnerMessage = "Player 2 Wins!";
+            winnerMessage = "CPU Wins!";
         }
         else
         {
@@ -188,18 +267,29 @@ public class GameManager : MonoBehaviour
             timerText.gameObject.SetActive(false);
         }
 
+        // Ensure full pause menu is hidden if it was somehow active
+        if (pauseMenuUI != null)
+        {
+             pauseMenuUI.SetActive(false);
+        }
+
+        // Show only the dedicated end-game Main Menu button
+        if (endGameMainMenuButton != null)
+        {
+            endGameMainMenuButton.SetActive(true);
+        }
     }
 
-
-    // Call this if you prefer a full scene reload to restart
-    public void RestartGameScene()
-    {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-    }
-
-    // Call this to restart the game logic without reloading the scene
     public void RestartGameLogic()
     {
-        InitializeGame();
+        InitializeGame(); // This now hides the endGameMainMenuButton correctly
+    }
+
+    public void RestartGameScene()
+    {
+        Time.timeScale = 1f;
+        isGamePaused = false;
+        isGameOver = false; // Ensure game over is reset before scene reload
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }
